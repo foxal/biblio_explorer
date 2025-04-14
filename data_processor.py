@@ -230,6 +230,86 @@ class BiblioDataProcessor:
         
         return name
 
+    def get_item_type(self, item_name: str, auto_type_check: int = 1, gui_mode: bool = False, gui_callback = None) -> Tuple[str, bool]:
+        """Determine the type of an item (person, organization, or something else) based on its name.
+        
+        Args:
+            item_name: The name of the item to classify
+            auto_type_check: 0 for manual, 1 for with confirmation, 2 for without confirmation
+            gui_mode: Whether running in GUI mode
+            gui_callback: Callback function for GUI input
+            
+        Returns:
+            Tuple of (item_type, is_auto) where:
+            - item_type: The determined type of the item
+            - is_auto: Whether the type was determined automatically
+        """
+        def manual_type_check(manual_item_name):
+            if gui_mode and gui_callback:
+                # Use GUI callback to get input if in GUI mode
+                return gui_callback(manual_item_name)
+            else:
+                # Use console input if not in GUI mode
+                item_is_type = input(f'You decide: is "{manual_item_name}" a person, organization, publication or something else? [P/o/b/e]: ') or "p"
+                if item_is_type.lower() == "p":
+                    return "person"
+                elif item_is_type.lower() == "o":
+                    return "organization"
+                elif item_is_type.lower() == "b":
+                    return "publication"
+                else:
+                    item_type = input(f'Please specify the type for "{manual_item_name}": ')
+                    return item_type
+
+        suggested_type = None
+        if auto_type_check == 1 or auto_type_check == 2:
+            gpt_type_judge = GPTResponse()
+            prompt_text = f"""Is '{item_name}' a person, an organization, or a publication? If person, return "person", if organization return "organization", if publication, return "publication". No explanation."""
+            suggested_type_response = gpt_type_judge.get_response(prompt_text).lower()
+            if "person" in suggested_type_response:
+                suggested_type = "person"
+            elif "organization" in suggested_type_response:
+                suggested_type = "organization"
+            elif "publication" in suggested_type_response:
+                suggested_type = "publication"
+            else:
+                suggested_type = "unclassified"
+
+            if auto_type_check == 1: # with human confirmation
+                is_auto = False
+                
+                # Handle confirmation with GUI or console
+                if gui_mode and gui_callback:
+                    confirmation = gui_callback(f'GPT suggests "{item_name}" is a(n) {suggested_type}. Do you agree?')
+                else:
+                    try:
+                        confirmation = inputimeout(prompt=f'GPT suggests "{item_name}" is a(n) {suggested_type}. Do you agree? [Y/n/m]: ', timeout=20) or "y"
+                    except TimeoutOccurred:
+                        self.logger.info("Time is out. Defaulting to GPT suggestion.")
+                        confirmation = "y"
+                        is_auto = True
+                        
+                # Process confirmation result
+                if confirmation.lower() == 'y':
+                    item_type = suggested_type
+                elif confirmation.lower() == 'n' and suggested_type in ["person", "organization"]:
+                    item_type = "organization" if suggested_type == "person" else "person"
+                elif confirmation.lower() == 'm':
+                    item_type = manual_type_check(item_name)
+                else:
+                    item_type = "unclassified"
+            elif auto_type_check == 2: # without human confirmation
+                is_auto = True
+                if suggested_type in ["person", "organization", "publication"]:
+                    item_type = suggested_type
+                else:
+                    item_type = "unclassified"
+        else:
+            is_auto = False
+            item_type = manual_type_check(item_name)
+
+        return item_type, is_auto
+
     def determine_entity_type_method2(self, name: str, existing_method: int = 0) -> Tuple[str, int]:
         """Determine entity type using method 2 (get_item_type) if needed."""
         # If entity was already checked with a higher or equal method, return None to keep existing type
@@ -237,7 +317,12 @@ class BiblioDataProcessor:
             return None, existing_method
         
         # Use get_item_type to determine type
-        entity_type, is_auto = get_item_type(name, self.auto_type_check)
+        entity_type, is_auto = self.get_item_type(
+            name, 
+            self.auto_type_check,
+            self.gui_mode,
+            self.entity_type_callback if hasattr(self, 'entity_type_callback') else None
+        )
         mode = self.auto_type_check  # Use the current auto_type_check value
         
         # If get_item_type returns 'publication', treat it as 'organization'
@@ -280,40 +365,8 @@ class BiblioDataProcessor:
                 converted += char
         return converted
 
-    def extract_year(self, date_str: str) -> Optional[str]:
-        """Extract year from NDL date formats.
-        
-        Handles formats like:
-        - (通号 502) 1973.02.01
-        - 15(10) 1973.10.00
-        - 1973.02.01
-        """
-        if not date_str:
-            return None
-            
-        # Convert full-width numbers first
-        date_str = self.convert_fullwidth_to_halfwidth(date_str)
-        
-        # Try to find a date pattern like YYYY.MM.DD
-        date_pattern = r'(\d{4})\.(\d{2})\.(\d{2})'
-        match = re.search(date_pattern, date_str)
-        if match:
-            year = match.group(1)
-            # Validate the year is reasonable
-            if 1800 <= int(year) <= 2100:
-                return year
-        
-        # If no date pattern found, try to find a 4-digit year
-        year_match = re.search(r'(?:19|20)\d{2}', date_str)
-        if year_match:
-            year = year_match.group(0)
-            if 1800 <= int(year) <= 2100:
-                return year
-                
-        return None
-
-    def normalize_date(self, date_str: str) -> str:
-        """Normalize date string to a consistent format.
+    def normalize_date(self, date_str: str) -> Tuple[str, Optional[str]]:
+        """Normalize date string to a consistent format and extract year.
         
         Converts formats like:
         - (通号 502) 1973.02.01 → 1973-02-01
@@ -322,12 +375,20 @@ class BiblioDataProcessor:
         - 昭和42年5月 → 1967-05
         - 19590315 → 1959-03-15
         - 196004 → 1960-04
+        
+        Returns:
+            A tuple of (normalized_date, extracted_year)
+            - normalized_date: The normalized date string
+            - extracted_year: Just the year component, or None if extraction fails
         """
         if not date_str:
-            return ""
+            return "", None
             
         # Convert full-width numbers
         date_str = self.convert_fullwidth_to_halfwidth(date_str)
+        
+        # Initialize extracted_year as None
+        extracted_year = None
         
         # Check for pure numeric formats first (YYYYMMDD or YYYYMM)
         numeric_only = re.sub(r'\D', '', date_str)  # Remove all non-digits
@@ -342,7 +403,8 @@ class BiblioDataProcessor:
             if (1800 <= int(year) <= 2100 and 
                 1 <= int(month) <= 12 and 
                 1 <= int(day) <= 31):
-                return f"{year}-{month}-{day}"
+                extracted_year = year
+                return f"{year}-{month}-{day}", extracted_year
         
         # Handle YYYYMM format (6 digits)
         elif len(numeric_only) == 6:
@@ -352,7 +414,8 @@ class BiblioDataProcessor:
             # Validate the values
             if (1800 <= int(year) <= 2100 and 
                 1 <= int(month) <= 12):
-                return f"{year}-{month}"
+                extracted_year = year
+                return f"{year}-{month}", extracted_year
         
         # Check for Japanese era years
         jp_era_pattern = r'(明治|大正|昭和|平成|令和)(\d{1,2})(?:年)?(?:(\d{1,2})月)?(?:(\d{1,2})日)?'
@@ -363,14 +426,15 @@ class BiblioDataProcessor:
             if era in ERA_CONVERSION:
                 # Convert era year to Gregorian year
                 greg_year = ERA_CONVERSION[era] + int(year) - 1
+                extracted_year = str(greg_year)
                 
                 # Format as YYYY-MM-DD
                 if month and day:
-                    return f"{greg_year}-{int(month):02d}-{int(day):02d}"
+                    return f"{greg_year}-{int(month):02d}-{int(day):02d}", extracted_year
                 elif month:
-                    return f"{greg_year}-{int(month):02d}"
+                    return f"{greg_year}-{int(month):02d}", extracted_year
                 else:
-                    return f"{greg_year}"
+                    return f"{greg_year}", extracted_year
         
         # Extract the date part (handles various formats)
         date_patterns = [
@@ -390,21 +454,24 @@ class BiblioDataProcessor:
                 if not (1800 <= int(year) <= 2100):
                     continue
                     
+                extracted_year = year
+                    
                 # Format as YYYY-MM-DD
                 if day and day != '00':
-                    return f"{year}-{int(month):02d}-{int(day):02d}"
+                    return f"{year}-{int(month):02d}-{int(day):02d}", extracted_year
                 else:
-                    return f"{year}-{int(month):02d}"
+                    return f"{year}-{int(month):02d}", extracted_year
         
         # If no date pattern matched, try to find just a year
         year_match = re.search(r'(?:\D|^)((?:18|19|20)\d{2})(?:\D|$)', date_str)
         if year_match:
             year = year_match.group(1)
             if 1800 <= int(year) <= 2100:
-                return year
+                extracted_year = year
+                return year, extracted_year
                 
         self.logger.warning(f"Could not normalize date string: {date_str}")
-        return date_str
+        return date_str, None
 
     def get_item_signature(self, item_id: str) -> str:
         """Get a combined signature string for an item including title, authors, and publisher."""
@@ -752,12 +819,13 @@ Item 2: {sig2}"""
             WHERE item_id = ?
             ''', (merge_id,))
             
-            # Update the kept item's publication date to the earlier one
-            keep_date = self.extract_year(keep_item['publication_date'])
-            merge_date = self.extract_year(merge_item['publication_date'])
-            if keep_date and merge_date:
-                if int(merge_date) < int(keep_date):
-                    self.logger.info(f"Updating publication date from {keep_date} to {merge_date}")
+            # Update the kept item's publication date to the earlier one if possible
+            keep_year = keep_item.get('extracted_year')
+            merge_year = merge_item.get('extracted_year')
+            
+            if keep_year and merge_year:
+                if int(merge_year) < int(keep_year):
+                    self.logger.info(f"Updating publication date from {keep_year} to {merge_year}")
                     self.cursor.execute('''
                     UPDATE bibliographic_items 
                     SET publication_date = ?
@@ -803,8 +871,8 @@ Item 2: {sig2}"""
     def check_duplicates(self, new_item: Dict) -> bool:
         """Check if the new item is a duplicate of any existing item."""
         try:
-            # Extract year from publication date
-            year = self.extract_year(new_item['publication_date'])
+            # Use the extracted year from normalize_date
+            year = new_item['extracted_year']
             if not year:
                 self.logger.debug(f"Could not extract year from date '{new_item['publication_date']}' for item {new_item['id']}, skipping deduplication")
                 return False
@@ -838,6 +906,10 @@ Item 2: {sig2}"""
                         'title': existing_item[1],
                         'publication_date': existing_item[2]
                     }
+                    
+                    # Get the extracted year for the existing item
+                    _, existing_year = self.normalize_date(existing_item_dict['publication_date'])
+                    existing_item_dict['extracted_year'] = existing_year
                     
                     is_duplicate, keep_item = self.compare_items(new_item, existing_item_dict)
                     if is_duplicate:
@@ -935,9 +1007,9 @@ Item 2: {sig2}"""
             title = record.get('title', '')
             pub_date = record.get('publication_date', '')
             
-            # Normalize the publication date
-            normalized_date = self.normalize_date(pub_date)
-            self.logger.debug(f"Normalized date from '{pub_date}' to '{normalized_date}'")
+            # Normalize the publication date and extract year
+            normalized_date, extracted_year = self.normalize_date(pub_date)
+            self.logger.debug(f"Normalized date from '{pub_date}' to '{normalized_date}', extracted year: {extracted_year}")
             
             subject = record.get('subject', '')
             pub_title = record.get('publication_title', '')
@@ -947,6 +1019,7 @@ Item 2: {sig2}"""
                 'id': item_id,
                 'title': title,
                 'publication_date': normalized_date,
+                'extracted_year': extracted_year,
                 'item_type': item_type,
                 'subject': subject,
                 'publication_title': pub_title

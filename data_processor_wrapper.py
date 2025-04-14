@@ -1,8 +1,8 @@
 import logging
 import threading
 import queue
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QInputDialog, QMessageBox
+from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtWidgets import QInputDialog, QMessageBox
 import sys
 
 # Import the original NDL processing script
@@ -412,25 +412,18 @@ class BiblioDataProcessorWithGUI(BiblioDataProcessor):
             
     def determine_entity_type_method2(self, name: str, existing_method: int = 0) -> tuple:
         """Override determine_entity_type_method2 to use GUI for entity type confirmation."""
-        from get_item_type import get_item_type
-        
         # If entity was already checked with a higher or equal method, return None to keep existing type
         if existing_method >= self.auto_type_check:
             return None, existing_method
             
-        if self.gui_mode and self.entity_type_callback and self.auto_type_check == 1:
-            # Use the GUI for entity type determination with confirmation
-            entity_type, is_auto = get_item_type(
-                name, 
-                self.auto_type_check, 
-                gui_mode=True, 
-                gui_callback=self.entity_type_callback
-            )
-            mode = self.auto_type_check
-        else:
-            # Use the standard get_item_type function
-            entity_type, is_auto = get_item_type(name, self.auto_type_check)
-            mode = self.auto_type_check
+        # Use the parent class's get_item_type method with GUI support
+        entity_type, is_auto = super().get_item_type(
+            name, 
+            self.auto_type_check,
+            self.gui_mode,
+            self.entity_type_callback
+        )
+        mode = self.auto_type_check
             
         # If get_item_type returns 'publication', treat it as 'organization'
         if entity_type == 'publication':

@@ -3,12 +3,12 @@ import os
 import threading
 import logging
 from datetime import datetime
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
                            QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog,
                            QTextEdit, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
                            QGroupBox, QFormLayout, QProgressBar, QMessageBox, QFrame,
                            QInputDialog)
-from PyQt5.QtCore import Qt, pyqtSignal, QObject, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
 
 # Import wrappers for the NDL scripts
 from ndl_search_wrapper import NDLSearchWrapper
@@ -970,4 +970,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_()) 
+    sys.exit(app.exec()) 

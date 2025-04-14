@@ -3,7 +3,7 @@ import threading
 import time
 import os
 import os.path
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal
 
 # Import the original NDL search script
 from ndl_search_retriever import NDLSearchAPI

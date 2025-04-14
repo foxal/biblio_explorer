@@ -2,7 +2,27 @@ from openai import OpenAI
 import os
 import json
 
-os.environ['OPENAI_API_KEY'] = "sk-proj-Gt8oUkclVlJm3Xw9oPE8T3BlbkFJtzloUqgA6VWVPWH3josU"
+def load_api_key():
+    """
+    Load OpenAI API key from environment variable or config file.
+    Returns the API key as a string or None if not found.
+    """
+    api_key = os.environ.get('OPENAI_API_KEY')
+    
+    if not api_key:
+        config_path = os.path.join(os.path.dirname(__file__), '.env')
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                for line in f:
+                    if line.startswith('OPENAI_API_KEY='):
+                        api_key = line.strip().split('=', 1)[1].strip('"\'')
+                        break
+    
+    return api_key
+
+api_key = load_api_key()
+if api_key:
+    os.environ['OPENAI_API_KEY'] = api_key
 
 class GPTResponse:
     def get_response(self, prompt_text, schema=None):
@@ -29,6 +49,10 @@ class GPTResponse:
             If no schema: str containing the raw response
         """
         try:
+            # Check if API key is set
+            if not os.environ.get('OPENAI_API_KEY'):
+                raise ValueError("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable or create a .env file.")
+                
             client = OpenAI()
             
             if schema:

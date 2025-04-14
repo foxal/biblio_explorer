@@ -7,9 +7,13 @@
 *.csv
 *.log
 *.xml
+*.graphml
 
 # ignore all files in the __pycache__ directory
 __pycache__/*
 bak/*
 .specstory/*
 *_data/*
+
+# Environment variables and API keys
+.env
