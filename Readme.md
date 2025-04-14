@@ -120,10 +120,10 @@ The agent can also be run in command-line mode for network creation:
 
 ```bash
 # Run agent with basic parameters
-python agent.py --person "Author Name" --depth 2
+python agent.py --person 林雄二郎 --depth 2
 
 # Run agent with advanced parameters
-python agent.py --person "Author Name" --title "Keyword" --start-year 1950 --end-year 2020 --database CiNii --depth 3 --max-authors 100
+python agent.py --database cinii --person 林雄二郎 --start_year 1960 --end_year 1970 --priority_depth 0,1 --max_authors 50
 ```
 
 Run `python agent.py --help` to see all available command-line options.
