@@ -20,8 +20,8 @@ Japanese Biblio Explorer aims to realize a symbiotic relationship between resear
 ## Workflow
 
 1. **Network Creation**:
-   1.1. **Network Expansion**: The Agent Module iteratively expands the network by discovering co-authors using an author-based adaptive snowball sampling method. It can be configured to present the status of exploration periodically, generate previews of coauthorship network, and ask the user to decide the future direction. The user can also pause and step in if necessary.
-   1.2. **Data Collection and Processing**: Commanded by the agent module, the Data Collection Modules retrieve, clean, normalize, and combine bibliographic data from the designated sources.
+   - **Network Expansion**: The Agent Module iteratively expands the network by discovering co-authors using an author-based adaptive snowball sampling method. It can be configured to present the status of exploration periodically, generate previews of coauthorship network, and ask the user to decide the future direction. The user can also pause and step in if necessary.
+   - **Data Collection and Processing**: Commanded by the agent module, the Data Collection Modules retrieve, clean, normalize, and combine bibliographic data from the designated sources.
 2. **Network Analysis**: Generate and analyze co-authorship networks
 3. **Community Detection**: Identify research communities and their relationships
 4. **Insight Generation**: Provide visualizations and analytics to support research
