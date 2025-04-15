@@ -19,12 +19,68 @@ Japanese Biblio Explorer aims to realize a symbiotic relationship between resear
 
 ## Workflow
 
-1. **Network Creation**:
-   - **Network Expansion**: The Agent Module iteratively expands the network by discovering co-authors using an author-based adaptive snowball sampling method. It can be configured to present the status of exploration periodically, generate previews of coauthorship network, and ask the user to decide the future direction. The user can also pause and step in if necessary.
-   - **Data Collection and Processing**: Commanded by the agent module, the Data Collection Modules retrieve, clean, normalize, and combine bibliographic data from the designated sources.
-2. **Network Analysis**: Generate and analyze co-authorship networks
-3. **Community Detection**: Identify research communities and their relationships
-4. **Insight Generation**: Provide visualizations and analytics to support research
+1. **Network Data Collection**:
+   - **Network Expansion**: After the user provides a seed author and other filtering parameters, the Agent Module iteratively expands the network by discovering co-authors using an author-based adaptive snowball sampling method. It can be configured to present the status of exploration periodically, generate previews of coauthorship network, and ask the user to decide the future direction. The user can also pause and step in if necessary.
+   - **Data Collection and Processing**: Commanded by the agent module, the Data Collection Modules retrieve, clean, normalize, deduplicate, and combine bibliographic data from the designated sources. The user will be asked for confirmation when the generative AI cannot make a high-confidence decision.
+2. **Network Analysis**
+   - **Network Generation**: Generate bibliographic and co-authorship networks.
+   - **Community Detection**: Identify communities and their themes.
+   - **Insight Generation**: Summarize the whole process and highlight discoveries.
+
+```mermaid
+flowchart TD
+    subgraph sg1["Network Data Collection"]
+        A1["User Input (Seed Author & Parameters)"]
+	
+        subgraph "Network Expansion Process"
+	        A3["Agent Module"]
+            A3 --> A4["Author-based Adaptive Snowball Sampling"]
+            A4 --> A5["Status Updates & Network Previews"]
+            A5 --> A6["User Intervention/Direction Decision"]
+            A6 -->|Continue| A4
+            A6 -->|Proceed to Next Phase| NextPhase
+            
+            subgraph "Data Collection Modules"
+                B1["Retrieve Bibliographic Data"]
+                B1 --> B2["Clean Data"]
+                B2 --> B3["Normalize Data"]
+                B3 --> B4["Deduplicate Data"]
+                B4 --> B5["Combine Data"]
+                B5 --> B6["User Confirmation for Low-Confidence Decisions"]
+            end
+        end
+        A1 --> A3
+        A4 --> B1
+        B6 --> A4
+    end
+
+    sg1 --> sg2
+
+    subgraph sg2["Network Analysis"]
+       
+        subgraph "Network Generation"
+			C["Network Generation Module"]
+            C1["Bibliographic Network"]
+            C2["Co-authorship Network"]
+        end
+        
+        subgraph "Community Detection"
+            D["Community Detection Module"]
+            D1["Identify Communities"]
+            D2["Determine Community Themes"]
+        end
+        
+        C --> D
+        
+        subgraph "Insight Generation"
+            E["Insight Generation Module"]
+            E1["Process Summary"]
+            E2["Highlight Key Discoveries"]
+        end
+        D --> E
+
+    end
+```
 
 ## Modules and Progress
 
@@ -46,7 +102,7 @@ These modules handle the collection, pre-processing, and storage of bibliographi
     - Standardized output format for consistency
 
 #### Data Processing Module
-- **`data_processor.py`**: Contains the `BiblioDataProcessor` class for managing retrieved data
+- **`data_processor.py`**: Contains the `BiblioDataProcessor` class for cleaning and normalizing retrieved data
   - **Features**:
     - Data normalization for dates, authors, and publishers
     - Duplication removal
@@ -61,7 +117,7 @@ These modules handle the collection, pre-processing, and storage of bibliographi
   - Database selection (NDL Search, CiNii, or both)
   - Initial seed author and filtering parameters (keywords, date ranges, etc.)
   - Network expansion parameters (depth, max authors)
-  - Priority calculation settings to balance depth-based and overlap-based author selection
+    - Priority calculation settings to balance depth-based and overlap-based author selection
 
 - **Database Management**:
   - Creates or continues with existing database files
