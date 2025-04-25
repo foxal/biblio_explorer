@@ -32,26 +32,23 @@ flowchart TD
     subgraph sg1["Network Data Collection"]
         A1["User Input (Seed Author & Parameters)"]
 	
-        subgraph "Network Expansion Process"
-	        A3["Agent Module"]
-            A3 --> A4["Author-based Adaptive Snowball Sampling"]
+        subgraph "Network Expansion"
+            A4["Agent module"]
             A4 --> A5["Status Updates & Network Previews"]
             A5 --> A6["User Intervention/Direction Decision"]
             A6 -->|Continue| A4
             A6 -->|Proceed to Next Phase| NextPhase
             
-            subgraph "Data Collection Modules"
-                B1["Retrieve Bibliographic Data"]
-                B1 --> B2["Clean Data"]
-                B2 --> B3["Normalize Data"]
-                B3 --> B4["Deduplicate Data"]
-                B4 --> B5["Combine Data"]
-                B5 --> B6["User Confirmation for Low-Confidence Decisions"]
+            subgraph "Data Collection"
+                B1["Retrieve Bibliographic Data from CiNii or NDL"]
+                B1 --> B2["Data normalization and deduplication"]
+                B2 --> B6["User Confirmation for Low-Confidence Decisions"]
+                B6 --> B7["Save record"]
             end
         end
-        A1 --> A3
+        A1 --> A4
         A4 --> B1
-        B6 --> A4
+        B7 --> A4
     end
 
     sg1 --> sg2
@@ -67,7 +64,7 @@ flowchart TD
         subgraph "Community Detection"
             D["Community Detection Module"]
             D1["Identify Communities"]
-            D2["Determine Community Themes"]
+            D2["Summarize Community Themes"]
         end
         
         C --> D
@@ -80,6 +77,9 @@ flowchart TD
         D --> E
 
     end
+	  n1@{ shape: "cyl", label: "Database" }
+    B7 --> n1
+    A5 --> n1
 ```
 
 ## Modules and Progress

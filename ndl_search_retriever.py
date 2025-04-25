@@ -12,7 +12,6 @@ import shutil
 from datetime import datetime
 import json
 import xml.etree.ElementTree as ET
-import uuid
 
 class NDLSearchAPI:
     """
@@ -40,7 +39,7 @@ class NDLSearchAPI:
         'foaf': 'http://xmlns.com/foaf/0.1/'
     }
     
-    def __init__(self, output_dir="ndl_data", max_records=200, gui_mode=False):
+    def __init__(self, output_dir="ndl_data", max_records=200, gui_mode=False, log_level='INFO'):
         """Initialize the API client with output directory and maximum records per request."""
         self.output_dir = output_dir
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -48,12 +47,13 @@ class NDLSearchAPI:
         self.DEFAULT_PARAMS["maximumRecords"] = str(self.max_records)
         self.yearly_search_dirs = []  # Track directories created for yearly searches
         self.gui_mode = gui_mode
+        self.log_level = getattr(logging, log_level.upper(), logging.INFO)
         
         # Set up logging
         log_file = os.path.join(output_dir, 'ndl_search.log')
         logging.basicConfig(
             filename=log_file,
-            level=logging.INFO,
+            level=self.log_level,
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
         self.logger = logging.getLogger('NDLSearchAPI')
@@ -61,7 +61,7 @@ class NDLSearchAPI:
         # Also log to console if not in GUI mode
         if not gui_mode:
             console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO)
+            console_handler.setLevel(self.log_level)
             self.logger.addHandler(console_handler)
     
     def search_by_title(self, title, ndc=None, from_year=None, until_year=None):

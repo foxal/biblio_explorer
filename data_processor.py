@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 import sqlite3
 import os
+import json
 from pathlib import Path
 import re
 from typing import List, Dict, Optional, Tuple, Set
@@ -47,7 +48,7 @@ ERA_CONVERSION = {
 
 class BiblioDataProcessor:
     def __init__(self, db_path: str = 'ndl_data.db', use_method2: bool = False, auto_type_check: int = 0, 
-                 dedup_threshold: float = 0.7, manual_dedup: bool = False, year_diff_threshold: int = 0,
+                 dedup_threshold: float = 0.9, manual_dedup: bool = False, year_diff_threshold: int = 0,
                  gpt_credibility_threshold: float = 0.8, gui_mode: bool = False, log_level: str = 'INFO',
                  http_log_level: str = 'WARNING', json_mode: bool = True):
         """Initialize the processor with database path and type checking options."""
@@ -628,7 +629,7 @@ class BiblioDataProcessor:
         similarity = 2.0 if self.is_title_included(item1['title'], item2['title']) else self.calculate_similarity(sig1, sig2)
         
         if similarity >= self.dedup_threshold:
-            self.logger.debug(f"Comparing items:\nItem 1 ({item1['id']}): {sig1}\nItem 2 ({item2['id']}): {sig2}\nSimilarity: {similarity:.2f}")
+            self.logger.info(f"Comparing items:\nItem 1 ({item1['id']}): {sig1}\nItem 2 ({item2['id']}): {sig2}\nSimilarity: {similarity:.2f}")
             
             if self.manual_dedup:
                 try:
@@ -955,8 +956,7 @@ Item 2: {sig2}"""
 
     def process_json_file(self, file_path: str):
         """Process a single JSON file and save data to database."""
-        import json
-        
+     
         try:
             self.logger.info(f"Starting to process JSON file: {file_path}")
             
@@ -1040,11 +1040,22 @@ Item 2: {sig2}"""
             
             for author in authors:
                 if author:
+                    # Handle both dict and string cases for compatibility
+                    if isinstance(author, dict):
+                        author_name = author.get('author_name', '')
+                        author_id = author.get('author_id', '')
+                    else:
+                        author_name = author
+                        author_id = ''
+                    
                     # Clean the author name
-                    cleaned_name = self.clean_japanese_name(author)
+                    cleaned_name = self.clean_japanese_name(author_name)
                     if cleaned_name:
-                        # Generate a new UUID for this author
-                        entity_id = str(uuid.uuid4())
+                        # Generate a new UUID for this author if author_id is not provided or empty
+                        if author_id and author_id != '':
+                            entity_id = author_id
+                        else:
+                            entity_id = str(uuid.uuid4())
                         
                         # Check if entity with this cleaned name already exists
                         self.cursor.execute('''
@@ -1054,39 +1065,41 @@ Item 2: {sig2}"""
                         ''', (cleaned_name,))
                         result = self.cursor.fetchone()
                         
-                        if result:
+                        if result and result[1] == 1:
+                            # If this entity was previously a publisher, use the existing ID and update its type
                             entity_id = result[0]
-                            # If this entity was previously a publisher, update its type
-                            if result[1]:
-                                if self.use_method2:
-                                    # For method 2, use get_item_type to determine type
-                                    entity_type, mode = self.determine_entity_type_method2(author, result[3])
-                                    if entity_type is None:
-                                        entity_type = result[2]  # Keep existing type
-                                        mode = result[3]  # Keep existing mode
-                                else:
-                                    # For method 1, set as organization
-                                    entity_type = 'organization'
-                                    mode = 3
-                                
-                                self.cursor.execute('''
-                                UPDATE entities 
-                                SET entity_type = ?, is_author = 1, type_detection_method = ?
-                                WHERE id = ?
-                                ''', (entity_type, mode, entity_id))
-                        else:
-                            # Determine entity type based on selected method
                             if self.use_method2:
-                                entity_type, mode = self.determine_entity_type_method2(author)
+                                # For method 2, use get_item_type to determine type
+                                entity_type, mode = self.determine_entity_type_method2(cleaned_name, result[3])
+                                if entity_type is None:
+                                    entity_type = result[2]  # Keep existing type
+                                    mode = result[3]  # Keep existing mode
+                            else:
+                                # For method 1, set as organization
+                                entity_type = 'organization'
+                                mode = 3
+                            
+                            self.cursor.execute('''
+                            UPDATE entities 
+                            SET entity_type = ?, is_author = 1, type_detection_method = ?
+                            WHERE id = ?
+                            ''', (entity_type, mode, entity_id))
+                        elif result and (result[0] == entity_id):
+                            pass
+                        else:
+                            # New author, determine entity type based on selected method
+                            if self.use_method2:
+                                entity_type, mode = self.determine_entity_type_method2(cleaned_name)
                             else:
                                 entity_type = 'person'
                                 mode = 3
                             
+                            # Double check here. Without the OR IGNORE, it would throw an error some time.
                             self.cursor.execute('''
-                            INSERT INTO entities 
+                            INSERT OR IGNORE INTO entities
                             (id, name, cleaned_name, entity_type, is_author, is_publisher, type_detection_method)
                             VALUES (?, ?, ?, ?, 1, 0, ?)
-                            ''', (entity_id, author, cleaned_name, entity_type, mode))
+                            ''', (entity_id, author_name, cleaned_name, entity_type, mode))
                         
                         self.cursor.execute('''
                         INSERT OR IGNORE INTO item_entities 
