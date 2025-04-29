@@ -37,7 +37,9 @@ class BiblioAgent:
                  depth: int = 3,
                  prioritized_depth: Optional[List[str]] = None,
                  prioritized_depth_weight: float = 0.8,
-                 max_authors: int = 200):
+                 max_authors: int = 200,
+                 use_method2: bool = True,
+                 dedup_threshold: float = 0.95):
         """
         Initialize the Biblio Agent with search and control parameters.
 
@@ -51,11 +53,14 @@ class BiblioAgent:
             end_year: Optional end year for publication date filtering
             ndc_number: Optional NDC classification number
             publication_type: Type of publications to search for ("books", "articles", "all")
-            min_publications: Minimum number of publications for an author to be included
+            min_publications: Minimum number of publications for an author to be included in the network
+            entity_types_in_network: Entity types to include in the network (e.g., 'person', 'organization')
             depth: Maximum depth for network expansion
             prioritized_depth: Which author depths to prioritize for calculating overlap priority
             prioritized_depth_weight: Weight for depth-based prioritization (0-1)
             max_authors: Maximum number of authors to search
+            use_method2: Whether to use generative AI for entity type detection
+            dedup_threshold: Threshold for deduplication similarity (values > 1.0 disable deduplication)
         """
         # Set up logging
         self._setup_logging()
@@ -68,6 +73,8 @@ class BiblioAgent:
         self.max_authors = max_authors
         self.min_publications = min_publications
         self.entity_types_in_network = entity_types_in_network or ["person"]
+        self.use_method2 = use_method2
+        self.dedup_threshold = dedup_threshold
 
         # Store search parameters
         self.person_name = person_name
@@ -93,9 +100,9 @@ class BiblioAgent:
         # Set up data processor first so it can initialize the database
         self.data_processor = BiblioDataProcessor(
             db_path=self.db_path,
-            use_method2=True,
+            use_method2=use_method2,
             auto_type_check=2,
-            dedup_threshold=1.1, # When larger than 1, no deduplication is performed
+            dedup_threshold=dedup_threshold, # When larger than 1, no deduplication is performed
             gui_mode=False,
             log_level='WARNING',
             http_log_level='WARNING'
@@ -133,6 +140,7 @@ class BiblioAgent:
                          f"ndc={ndc_number}, type={publication_type}")
         self.logger.info(f"Control parameters: depth={depth}, max_authors={max_authors}, "
                          f"prioritized_depth={prioritized_depth}, weight={prioritized_depth_weight}")
+        self.logger.info(f"Data processor parameters: use_method2={use_method2}, dedup_threshold={dedup_threshold}")
 
     def _setup_logging(self):
         """Set up logging configuration"""
@@ -267,7 +275,9 @@ class BiblioAgent:
             'prioritized_depth': self.prioritized_depth,
             'prioritized_depth_weight': self.prioritized_depth_weight,
             'max_authors': self.max_authors,
-            'entity_types_in_network': self.entity_types_in_network
+            'entity_types_in_network': self.entity_types_in_network,
+            'use_method2': self.use_method2,
+            'dedup_threshold': self.dedup_threshold
         }
 
         self.cursor.execute(
@@ -327,6 +337,12 @@ class BiblioAgent:
 
             if self.entity_types_in_network is None and 'entity_types_in_network' in control_params:
                 self.entity_types_in_network = control_params['entity_types_in_network']
+            
+            if self.use_method2 is None and 'use_method2' in control_params:
+                self.use_method2 = control_params['use_method2']
+
+            if self.dedup_threshold is None and 'dedup_threshold' in control_params:
+                self.dedup_threshold = control_params['dedup_threshold']
 
             # Always save the current parameter state
             self._save_expansion_metadata()
@@ -651,8 +667,6 @@ class BiblioAgent:
                 else:
                     coauthors = []
 
-                # Here the user or AI can designate prioritized authors directly, change the prioritized depths, or change the depth values of specific authors.
-
                 # get the current prioritized zone
                 prioritized_authors = self._get_prioritized_authors()
 
@@ -669,8 +683,9 @@ class BiblioAgent:
                 self._update_author_status(author_id, 'failed')
                 self.logger.warning(f"Failed to retrieve publications for author: {author_name}")
 
-            # Update iteration count
             iteration_count += 1
+
+            # Here the user or AI can designate prioritized authors directly, change the prioritized depths, or change the depth values of specific authors.
             if iteration_count % 100 == 0:
                 self.logger.info(f"Processed {iteration_count} authors so far.")
 
@@ -1075,7 +1090,7 @@ def main():
         help="Type(s) of publications to search for (e.g., --type books articles, or --type all)"
     )
     parser.add_argument("--min_pubs", type=int, default=1,
-                        help="Minimum number of publications for including authors")
+                        help="Minimum number of publications for an author to be included in the network")
     parser.add_argument("--depth", type=int, default=3,
                         help="Maximum depth for network expansion")
     parser.add_argument("--priority_depth", nargs="+", default=None,
@@ -1086,6 +1101,10 @@ def main():
                         help="Maximum number of authors to search")
     parser.add_argument("--entity_types", nargs="+", default=["person"],
                         help="Entity types to include in the network (e.g., 'person', 'organization')")
+    parser.add_argument("--ai_for_type_detection", action="store_true", default=True,
+                        help="Use generative AI for entity type detection")
+    parser.add_argument("--ai_dedup_threshold", type=float, default=0.95,
+                        help="Similarity threshold for AI deduplication (values >= 1.0 disable this feature)")
 
     args = parser.parse_args()
 
@@ -1105,7 +1124,9 @@ def main():
         prioritized_depth=args.priority_depth,
         prioritized_depth_weight=args.priority_weight,
         max_authors=args.max_authors,
-        entity_types_in_network=args.entity_types
+        entity_types_in_network=args.entity_types,
+        use_method2=args.ai_for_type_detection,
+        dedup_threshold=args.ai_dedup_threshold
     )
 
     try:

@@ -4,6 +4,7 @@
 *.html
 *.pyc
 *.db
+*.db-journal
 *.csv
 *.log
 *.xml

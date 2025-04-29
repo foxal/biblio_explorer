@@ -690,7 +690,7 @@ class GraphVisualizer:
                 }
 
                 # Get response from GPT
-                print(f"Requesting GPT analysis for community {community_id}...")
+                print(f"Requesting LLM summarization for community {community_id}...")
                 response = gpt.get_response(prompt, schema)
 
                 if response:
@@ -1288,7 +1288,7 @@ def main():
         parser.add_argument('--community-method', type=str, choices=['louvain', 'leiden'], default='louvain',
                            help='Community detection method to use (default: louvain)')
         parser.add_argument('--generate-themes', action='store_true',
-                           help='Generate research theme summaries for communities using GPT')
+                           help='Generate research theme summaries for communities using LLM')
         parser.add_argument('--max-authors-per-community', type=int, default=20,
                            help='Maximum number of authors to analyze per community (default: 20)')
         parser.add_argument('--max-publications-per-author', type=int, default=3,

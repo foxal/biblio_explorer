@@ -1,6 +1,6 @@
 # Japanese Biblio Explorer
 
-**THIS IS A WORK-IN-PROGRESS.**
+**THIS IS A WORK IN PROGRESS.**
 
 ## Introduction
 
@@ -20,7 +20,7 @@ Japanese Biblio Explorer aims to realize a symbiotic relationship between resear
 ## Workflow
 
 1. **Network Data Collection**:
-   - **Network Expansion**: After the user provides a seed author and other filtering parameters, the Agent Module iteratively expands the network by discovering co-authors using an author-based adaptive snowball sampling method. It can be configured to present the status of exploration periodically, generate previews of coauthorship network, and ask the user to decide the future direction. The user can also pause and step in if necessary.
+   - **Network Expansion**: After the user provides a seed author and other filtering parameters, the Agent Module iteratively expands the network by discovering co-authors using an author-based adaptive snowball sampling method. It can be configured to present the status of exploration periodically, generate previews of co-authorship network, and ask the user to decide the future direction. The user can also pause and step in if necessary.
    - **Data Collection and Processing**: Commanded by the agent module, the Data Collection Modules retrieve, clean, normalize, deduplicate, and combine bibliographic data from the designated sources. The user will be asked for confirmation when the generative AI cannot make a high-confidence decision.
 2. **Network Analysis**
    - **Network Generation**: Generate bibliographic and co-authorship networks.
@@ -88,18 +88,17 @@ flowchart TD
 
 These modules handle the collection, pre-processing, and storage of bibliographic data:
 
-#### NDL Search Module
-- **`ndl_search_retriever.py`**: Retrieves bibliographic items from the [NDL Search API](https://ndlsearch.ndl.go.jp/help/api/specifications)
+#### CiNii Module
+- **`cinii_search_retriever.py`**: Interfaces with CiNii Research's [OpenSearch API](https://support.nii.ac.jp/ja/cir/r_opensearch)
   - **Features**:
     - Multiple query modes: by keywords in title, by creator, or by NDC code
     - Customizable time range parameters
     - XML data extraction and JSON conversion
 
-#### CiNii Module
-- **`cinii_search_retriever.py`**: Interfaces with CiNii Research's [OpenSearch API](https://support.nii.ac.jp/ja/cir/r_opensearch)
+#### NDL Search Module
+- **`ndl_search_retriever.py`**: Retrieves bibliographic items from the [NDL Search API](https://ndlsearch.ndl.go.jp/help/api/specifications)
   - **Features**:
-    - Parallel functionality to NDL module
-    - Standardized output format for consistency
+    - Parallel functionality to CiNii module
 
 #### Data Processing Module
 - **`data_processor.py`**: Contains the `BiblioDataProcessor` class for cleaning and normalizing retrieved data
@@ -108,8 +107,9 @@ These modules handle the collection, pre-processing, and storage of bibliographi
     - Duplication removal
     - SQLite database storage with relational tables
     - Entity identification and categorization
+    - Save cleaned data to SQLite database
 
-### Agent Module (*IN-PROGRESS*)
+### Agent Module (*DONE*)
 
 **`agent.py`**: The core intelligent component that orchestrates data collection for the network:
 
@@ -129,17 +129,16 @@ These modules handle the collection, pre-processing, and storage of bibliographi
   - Provides periodic status updates and visualizations
   - Terminates based on configurable conditions (depth limit, author count, etc.)
 
-- **Output**:
-  - Generates tree diagrams and network representations
-  - Produces standardized graph formats for further analysis
-
-### Social Network Analysis Modules (*TODO*)
-- Creation of co-authorship network, etc.
+### Social Network Analysis Modules (*IN-PROGRESS*)
+- Generation of co-authorship network (*DONE*)
 - Analysis of the co-authorship networks:
-  - **Community detection algorithms**
-  - **Centrality measures** to identify key researchers
-  - **Temporal analysis** of collaboration patterns
-  - **Visualization components** for network exploration
+  - **Community detection algorithms** (*DONE*)
+    - Louvain method
+    - Leiden method
+  - **Research theme summarization** using generative AI (*DONE*)
+  - **Centrality measures** to identify key researchers (*TODO*)
+  - **Temporal analysis** of collaboration patterns (*TODO*)
+  - **Visualization components** for network exploration (*IN-PROGRESS*)
 
 ### GUI Modules (*IN-PROGRESS*)
 The GUI components:
@@ -175,14 +174,16 @@ python biblio_explorer_gui.py
 The agent can also be run in command-line mode for network creation:
 
 ```bash
-# Run agent with basic parameters
+# Run agent with minimum parameters
 python agent.py --person 林雄二郎 --depth 2
+python visualize_graph.py
 
 # Run agent with advanced parameters
-python agent.py --database cinii --person 林雄二郎 --start_year 1960 --end_year 1970 --priority_depth 0,1 --max_authors 50
+python agent.py --database cinii --person 石井威望 --start_year 1960 --end_year 1969 --priority_depth 0,1 --max_authors 500 --min_pubs 1 --depth 5 --author_from_rdf
+python visualize_graph.py --db network_data_20250425_215615.db --top 2000 --community-method leiden --generate-themes
 ```
 
-Run `python agent.py --help` to see all available command-line options.
+Run `python agent.py --help` and `python visualize_graph.py --help` to see all available command-line options.
 
 ### API Key Setup
 

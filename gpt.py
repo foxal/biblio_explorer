@@ -41,7 +41,8 @@ class GPTResponse:
                                            "keep_item": {"type": "string", "enum": ["1", "2", "0"]},
                                            "reason": {"type": "string"}
                                        },
-                                       "required": ["is_duplicate", "keep_item", "reason"]
+                                       "required": ["is_duplicate", "keep_item", "reason"],
+                                       "additionalProperties": False
                                    }
         
         Returns:
