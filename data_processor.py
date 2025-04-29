@@ -49,7 +49,7 @@ ERA_CONVERSION = {
 class BiblioDataProcessor:
     def __init__(self, db_path: str = 'ndl_data.db', use_method2: bool = False, auto_type_check: int = 0, 
                  dedup_threshold: float = 0.9, manual_dedup: bool = False, year_diff_threshold: int = 0,
-                 gpt_credibility_threshold: float = 0.8, gui_mode: bool = False, log_level: str = 'INFO',
+                 gpt_credibility_threshold: float = 0.9, gui_mode: bool = False, log_level: str = 'INFO',
                  http_log_level: str = 'WARNING', json_mode: bool = True):
         """Initialize the processor with database path and type checking options."""
         self.db_path = db_path
@@ -670,7 +670,7 @@ class BiblioDataProcessor:
                     "properties": {
                         "is_duplicate": {
                             "type": "boolean",
-                            "description": "Whether the two items are duplicates"
+                            "description": "Whether the two publications are actually the same one"
                         },
                         "keep_item": {
                             "type": "string",
@@ -687,11 +687,11 @@ class BiblioDataProcessor:
                 }
 
                 # Use GPT for final judgment with structured output
-                prompt = f"""Compare these two bibliographic items and determine if they are duplicates:
+                prompt = f"""Compare these two bibliographic items and determine if they are actually the same one:
 Item 1: {sig1}
 Item 2: {sig2}"""
-                if similarity == 2.0:
-                    prompt += "\nNote: One title is included in another."
+                # if similarity == 2.0:
+                #     prompt += "\nNote: One title is included in another."
                 prompt += "\n\nThe item with more complete information should be kept."
                 
                 response = self.gpt.get_response(prompt, schema=dedup_schema)
@@ -703,9 +703,9 @@ Item 2: {sig2}"""
                             prompt += "Note: One title is included in another.\n"
                         
                         # Ask for single-step decision (should return '1', '2', or 'n')
-                        self.logger.info("Requesting manual input due to GPT failure")
+                        self.logger.debug("Requesting manual input due to GPT failure")
                         response = self.get_user_input(prompt)
-                        self.logger.info(f"Manual input response: {response}")
+                        self.logger.debug(f"Manual input response: {response}")
                         
                         if response is None:
                             result = (False, None)
@@ -718,7 +718,7 @@ Item 2: {sig2}"""
                         self.logger.warning(f"Error during manual deduplication: {str(e)}")
                         result = (False, None)
                 else:
-                    self.logger.info(f"GPT response: {response}")
+                    self.logger.debug(f"GPT response: {response}")
                     credibility = response['credibility']
                     if credibility < self.gpt_credibility_threshold:
                         self.logger.info(f"GPT credibility ({credibility}) below threshold ({self.gpt_credibility_threshold}), asking for manual input")
@@ -880,15 +880,15 @@ Item 2: {sig2}"""
                 
             # Get items from the same year or within the year difference threshold
             if self.year_diff_threshold == 0:
-                # If threshold is 0, only check items from the same year
+                # If threshold is 0, only check items from the same year. Exclude existing item with the same id.
                 self.cursor.execute('''
                 SELECT id, title, publication_date 
                 FROM bibliographic_items 
                 WHERE substr(publication_date, 1, 4) = ?
-                AND id != ?  -- Exclude the current item
+                AND id != ?
                 ''', (year, new_item['id']))
             else:
-                # If threshold > 0, check items within the year range
+                # If threshold > 0, check items within the year range. Exclude existing item with the same id.
                 year_int = int(year)
                 min_year = year_int - self.year_diff_threshold
                 max_year = year_int + self.year_diff_threshold
@@ -896,7 +896,7 @@ Item 2: {sig2}"""
                 SELECT id, title, publication_date 
                 FROM bibliographic_items 
                 WHERE CAST(substr(publication_date, 1, 4) AS INTEGER) BETWEEN ? AND ?
-                AND id != ?  -- Exclude the current item
+                AND id != ?
                 ''', (min_year, max_year, new_item['id']))
             
             self.logger.debug(f"Checking for duplicates of item {new_item['id']}")

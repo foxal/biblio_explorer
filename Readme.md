@@ -4,7 +4,7 @@
 
 ## Introduction
 
-An AI-powered research assistant that collaborates with researchers to retrieve bibliographic data from NDL Search and CiNii, create coauthorship networks, and detect communities. Initially developed for revealing the historical development of interdisciplinary communities in postwar Japan, it can be used by researchers from other fields including sociology, politics, and science of science.
+An AI-powered research assistant that collaborates with researchers to retrieve bibliographic data from NDL Search and CiNii, create co-authorship networks, and detect communities. Initially developed for revealing the historical development of interdisciplinary communities in postwar Japan, it can be used by researchers from other fields including sociology, politics, and science of science.
 
 ## Philosophy of Design
 
@@ -13,9 +13,9 @@ Japanese Biblio Explorer aims to realize a symbiotic relationship between resear
 ## Highlights and key contributions
 
 1. A new tool works in both GUI and command line modes for exploring the bibliographic data in NDL Search and CiNii.
-2. A new author-based adaptive snowball sampling method that can avoid exponential growth in data colleciton and efficiently detects communities centered on the seed author or at a distance from the seed author.
+2. A new author-based adaptive snowball sampling method that can avoid exponential growth in data collection and efficiently detects communities centered on the seed author or at a distance from the seed author.
 3. An experiment on a symbiotic relationship between researcher and generative AI that allows the researcher to control the algorithm.
-4. Highly modulized design that allows the reuse of part or the entire tool for developing other tools.
+4. Highly modularized design that allows the reuse of part or the entire tool for developing other tools.
 
 ## Workflow
 
@@ -138,7 +138,7 @@ These modules handle the collection, pre-processing, and storage of bibliographi
   - **Research theme summarization** using generative AI (*DONE*)
   - **Centrality measures** to identify key researchers (*TODO*)
   - **Temporal analysis** of collaboration patterns (*TODO*)
-  - **Visualization components** for network exploration (*IN-PROGRESS*)
+  - **Visualization components** for network exploration (*TODO*)
 
 ### GUI Modules (*IN-PROGRESS*)
 The GUI components:
