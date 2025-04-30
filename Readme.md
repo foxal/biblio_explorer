@@ -212,3 +212,6 @@ Contributions are welcome after the "work-in-progress" mark disappears.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Disclosure
+Generative AI tools (Cursor and Augment Code) are used in this project.
